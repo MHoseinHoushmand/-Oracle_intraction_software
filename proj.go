@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"time"
-
+        //Gopacket library is used for working with packets such as sniffing packets
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/pcap"
 )
@@ -24,6 +24,7 @@ var (
 	filter          string = "tcp and port 1521"
 )
 
+//The main Architecture of software is written in main function
 func main() {
 	devices := Scan_AllDevices()
 	// Open device
@@ -34,7 +35,7 @@ func main() {
 	// Use the handle as a packet source to process all packets
 	fmt.Println("Snifing is starting")
 	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	for packet := range packetSource.Packets() {
+	for packet := range packetSource.Packets() {//Sniff packets from PacketSource
 		// Process packet here
 		character_indx = 0
 		Check_username_pack(packet)
@@ -42,6 +43,7 @@ func main() {
 	}
 }
 
+//Find and Return all devices in Network 
 func Scan_AllDevices() []pcap.Interface {
 	devices, err := pcap.FindAllDevs()
 	if err != nil {
@@ -49,6 +51,7 @@ func Scan_AllDevices() []pcap.Interface {
 	}
 	return devices
 }
+
 
 func Open_Device(Dvice_name string) *pcap.Handle {
 	handle, err = pcap.OpenLive(Dvice_name, snapshot_len, promiscuous, timeout)
@@ -58,6 +61,7 @@ func Open_Device(Dvice_name string) *pcap.Handle {
 	return handle
 }
 
+//The TNSpacket has 4 layers
 func Packet_isTNS(packet gopacket.Packet) (result bool) {
 	if len(packet.Layers()) == 4 {
 		return true
@@ -65,6 +69,8 @@ func Packet_isTNS(packet gopacket.Packet) (result bool) {
 	return false
 }
 
+
+//Checking for special bytes in packet for finding username 
 func Username_exist(packet gopacket.Packet) (result bool) {
 	if len(packet.Layers()[3].LayerContents()) > 10 &&
 		packet.Layers()[3].LayerContents()[10] == 0x03 &&
@@ -74,6 +80,8 @@ func Username_exist(packet gopacket.Packet) (result bool) {
 	return false
 }
 
+
+//Check if character is standard
 func Standard_character(character byte) (result bool) {
 	if character > 31 && character < 127 {
 		return true
@@ -81,6 +89,8 @@ func Standard_character(character byte) (result bool) {
 	return false
 }
 
+
+//Checking for special bytes in packet for finding OCIQuery 
 func OCIQuery_exist(packet gopacket.Packet) (result bool) {
 	if len(packet.Layers()[3].LayerContents()) > 12 &&
 		((packet.Layers()[3].LayerContents()[10] == 3 &&
@@ -92,6 +102,8 @@ func OCIQuery_exist(packet gopacket.Packet) (result bool) {
 	return false
 }
 
+
+//Return the longest_valid_substring as the main Query
 func longest_valid_substring(packet gopacket.Packet) (result bytes.Buffer) {
 	character_indx = 0
 	var cur_vsubstring bytes.Buffer
@@ -111,6 +123,7 @@ func longest_valid_substring(packet gopacket.Packet) (result bytes.Buffer) {
 	return longest_vsubstring
 }
 
+//Finding the username from "username_packet"
 func Get_username(packet gopacket.Packet) (result bytes.Buffer) {
 	character_indx = 12
 	character = packet.Layers()[3].LayerContents()[character_indx]
@@ -126,6 +139,7 @@ func Get_username(packet gopacket.Packet) (result bytes.Buffer) {
 	return username_string
 }
 
+//Log the packet which the username is found
 func Check_username_pack(packet gopacket.Packet) {
 	if Packet_isTNS(packet) && Username_exist(packet) {
 		pac_counter += 1
@@ -140,6 +154,7 @@ func Check_username_pack(packet gopacket.Packet) {
 
 }
 
+//Log the packet which the Query is found
 func Print_OCI_pack(packet gopacket.Packet) {
 	if Packet_isTNS(packet) && OCIQuery_exist(packet) {
 		query_string = longest_valid_substring(packet)
